@@ -1,0 +1,3 @@
+[submodule "libsql-c"]
+	path = libsql-c
+	url = https://github.com/tursodatabase/libsql-c
