@@ -3,8 +3,14 @@ require 'ffi'
 module CLibsql # :nodoc:
   extend FFI::Library
 
-  lib = File.expand_path('lib/universal2-apple-darwin/liblibsql.dylib', __dir__)
-  ffi_lib lib
+  file =
+    case RUBY_PLATFORM
+    in /darwin/ then 'universal2-apple-darwin/liblibsql.dylib'
+    in /x86_64-linux/ then 'x86_64-unknown-linux-gnu/liblibsql.so'
+    in /arm64-linux/ then 'aarch64-unknown-linux-gnu/liblibsql.so'
+    end
+
+  ffi_lib File.expand_path("lib/#{file}", __dir__)
 
   Cypher = enum(:default, :aes256)
   Type = enum(
