@@ -30,6 +30,10 @@ module CLibsql # :nodoc:
 
     layout err: :pointer,
            inner: :pointer
+
+    def deinit
+      CLibsql.libsql_database_deinit self
+    end
   end
 
   class Connection < FFI::Struct  # :nodoc:
@@ -37,6 +41,10 @@ module CLibsql # :nodoc:
 
     layout err: :pointer,
            inner: :pointer
+
+    def deinit
+      CLibsql.libsql_connection_deinit self
+    end
   end
 
   class Transaction < FFI::Struct # :nodoc:
@@ -44,6 +52,10 @@ module CLibsql # :nodoc:
 
     layout err: :pointer,
            inner: :pointer
+
+    def deinit
+      CLibsql.libsql_transaction_deinit self
+    end
   end
 
   class Statement < FFI::Struct # :nodoc:
@@ -51,6 +63,18 @@ module CLibsql # :nodoc:
 
     layout err: :pointer,
            inner: :pointer
+
+    def bind_value(value)
+      CLibsql.libsql_statement_bind_value(self, value).verify
+    end
+
+    def bind_named(name, value)
+      CLibsql.libsql_statement_bind_named(self, name, value).verify
+    end
+
+    def deinit
+      CLibsql.libsql_statement_deinit self
+    end
   end
 
   class Rows < FFI::Struct # :nodoc:
@@ -62,6 +86,10 @@ module CLibsql # :nodoc:
     def next
       CLibsql.libsql_rows_next self
     end
+
+    def deinit
+      CLibsql.libsql_rows_deinit self
+    end
   end
 
   class Row < FFI::Struct # :nodoc:
@@ -70,8 +98,24 @@ module CLibsql # :nodoc:
     layout err: :pointer,
            inner: :pointer
 
+    def value_at(index)
+      CLibsql.libsql_row_value self, index
+    end
+
+    def name_at(index)
+      CLibsql.libsql_row_name self, index
+    end
+
+    def length
+      CLibsql.libsql_row_length self
+    end
+
     def empty?
       CLibsql.libsql_row_empty self
+    end
+
+    def deinit
+      CLibsql.libsql_row_deinit self
     end
   end
 
@@ -102,6 +146,22 @@ module CLibsql # :nodoc:
   class Slice < FFI::Struct # :nodoc:
     layout ptr: :pointer,
            len: :size_t
+
+    def to_blob
+      b = Blob.new self[:ptr].read_string self[:len]
+      deinit
+      b
+    end
+
+    def to_s
+      s = self[:ptr].read_string
+      deinit
+      s
+    end
+
+    def deinit
+      CLibsql.libsql_slice_deinit self
+    end
   end
 
   class ValueUnion < FFI::Union # :nodoc:
@@ -114,6 +174,16 @@ module CLibsql # :nodoc:
   class Value < FFI::Struct # :nodoc:
     layout value: ValueUnion.by_value,
            type: Type
+
+    def convert
+      case self[:type]
+      in :null then nil
+      in :integer then self[:value][:integer]
+      in :real then self[:value][:real]
+      in :text then self[:value][:text].to_s
+      in :blob then self[:value][:blob].to_blob
+      end
+    end
   end
 
   class ResultValue < FFI::Struct # :nodoc:
@@ -140,7 +210,7 @@ module CLibsql # :nodoc:
   attach_function :libsql_row_empty, [Row.by_value], :bool
   attach_function :libsql_row_value, [Row.by_value, :uint32], ResultValue.by_value
   attach_function :libsql_row_name, [Row.by_value, :uint32], Slice.by_value
-  attach_function :libsql_row_length, [Row.by_value, :uint32], Slice.by_value
+  attach_function :libsql_row_length, [Row.by_value], :uint32
 
   attach_function :libsql_integer, [:int64], Value.by_value
   attach_function :libsql_real, [:double], Value.by_value
@@ -151,6 +221,7 @@ module CLibsql # :nodoc:
   attach_function :libsql_error_message, [:pointer], :string
 
   attach_function :libsql_error_deinit, [:pointer], :void
+  attach_function :libsql_slice_deinit, [Row.by_value], :void
   attach_function :libsql_row_deinit, [Row.by_value], :void
   attach_function :libsql_rows_deinit, [Rows.by_value], :void
   attach_function :libsql_statement_deinit, [Statement.by_value], :void
@@ -164,24 +235,26 @@ module Libsql
       @inner = inner
     end
 
+    def to_a
+      (0...@inner.length).map { |i| self[i] }
+    end
+
+    def to_h
+      cols.zip(to_a).to_h
+    end
+
+    def cols
+      (0...@inner.length).map { |i| @inner.name_at(i).to_s }
+    end
+
     def [](index)
-      result = CLibsql.libsql_row_value @inner, index
+      result = @inner.value_at index
       result.verify
-
-      type = result[:ok][:type]
-      value = result[:ok][:value]
-
-      case type
-      in :null then nil
-      in :integer then value[:integer]
-      in :real then value[:real]
-      in :text then value[:text][:ptr].read_string
-      in :blob then Blob.new value[:blob][:ptr].read_string(value[:blob][:len])
-      end
+      result[:ok].convert
     end
 
     def close
-      CLibsql.libsql_row_deinit @inner
+      @inner.deinit
     end
   end
 
@@ -206,7 +279,7 @@ module Libsql
     end
 
     def close
-      CLibsql.libsql_rows_deinit @inner
+      @inner.deinit
     end
   end
 
@@ -220,32 +293,28 @@ module Libsql
 
     def bind(params)
       case params
-      in Array
-        params.each do |v|
-          CLibsql.libsql_statement_bind_value(@inner, convert(v)).verify
-        end
-      in Hash
-        params.each do |name, v|
-          CLibsql.libsql_statement_bind_named(@inner, name, convert(v)).verify
-        end
+      in Array then params.each { |v| @inner.bind_value convert(v) }
+      in Hash then params.each do |k, v|
+        @inner.bind_named case k when Symbol then ":#{k}" else k end, convert(v)
+      end
       end
     end
 
     def execute(params = [])
       bind params
-
       CLibsql.libsql_statement_execute(@inner).verify
     end
 
     def query(params = [])
       bind params
-
       Rows.new CLibsql.libsql_statement_query @inner
     end
 
     def close
-      CLibsql.libsql_statement_deinit @inner
+      @inner.deinit
     end
+
+    private
 
     def convert(value)
       case value
@@ -269,7 +338,7 @@ module Libsql
     end
 
     def close
-      CLibsql.libsql_connection_deinit @inner
+      @inner.deinit
     end
   end
 
@@ -294,7 +363,7 @@ module Libsql
     end
 
     def close
-      CLibsql.libsql_database_deinit @inner
+      @inner.deinit
     end
   end
 end
@@ -302,10 +371,9 @@ end
 Libsql::Database.new path: ':memory:' do |db|
   conn = db.connect
 
-  conn.prepare('select ?, ?, ?').query([20, 0.3, 'hello']).each do |row|
-    p row[0]
-    p row[1]
-    p row[2]
+  conn.prepare('select :a, :b, :c, :d').query({ a: 20, b: 0.3, c: 'hello', d: nil }).each do |row|
+    p row.cols
+    p row.to_a
   end
 
   conn.close
