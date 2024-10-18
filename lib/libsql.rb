@@ -37,9 +37,9 @@ module CLibsql # :nodoc:
     layout err: :pointer,
            inner: :pointer
 
-    def deinit
-      CLibsql.libsql_database_deinit self
-    end
+    def self.init(desc) = CLibsql.libsql_database_init(desc).tap(&:verify)
+    def connect = CLibsql.libsql_database_connect(self).tap(&:verify)
+    def deinit = CLibsql.libsql_database_deinit self
   end
 
   class Connection < FFI::Struct  # :nodoc:
@@ -48,9 +48,10 @@ module CLibsql # :nodoc:
     layout err: :pointer,
            inner: :pointer
 
-    def deinit
-      CLibsql.libsql_connection_deinit self
-    end
+    def transaction = CLibsql.libsql_connection_transaction(self).tap(&:verify)
+    def prepare(sql) = CLibsql.libsql_connection_prepare(self, sql).tap(&:verify)
+    def execute_batch(sql) = CLibsql.libsql_connection_batch(self, sql).tap(&:verify)
+    def deinit = CLibsql.libsql_connection_deinit self
   end
 
   class Transaction < FFI::Struct # :nodoc:
@@ -59,9 +60,11 @@ module CLibsql # :nodoc:
     layout err: :pointer,
            inner: :pointer
 
-    def deinit
-      CLibsql.libsql_transaction_deinit self
-    end
+    def commit = CLibsql.libsql_transaction_commit(self)
+    def rollback = CLibsql.libsql_transaction_rollback(self)
+    def prepare(sql) = CLibsql.libsql_transaction_prepare(self, sql).tap(&:verify)
+    def execute_batch(sql) = CLibsql.libsql_transaction_batch(self, sql).tap(&:verify)
+    def deinit = CLibsql.libsql_transaction_deinit self
   end
 
   class Statement < FFI::Struct # :nodoc:
@@ -70,17 +73,11 @@ module CLibsql # :nodoc:
     layout err: :pointer,
            inner: :pointer
 
-    def bind_value(value)
-      CLibsql.libsql_statement_bind_value(self, value).verify
-    end
-
-    def bind_named(name, value)
-      CLibsql.libsql_statement_bind_named(self, name, value).verify
-    end
-
-    def deinit
-      CLibsql.libsql_statement_deinit self
-    end
+    def bind_value(value) = CLibsql.libsql_statement_bind_value(self, value).tap(&:verify)
+    def bind_named(name, value) = CLibsql.libsql_statement_bind_named(self, name, value).tap(&:verify)
+    def query = CLibsql.libsql_statement_query(self).tap(&:verify)
+    def execute = CLibsql.libsql_statement_execute(self).tap(&:verify)
+    def deinit = CLibsql.libsql_statement_deinit self
   end
 
   class Rows < FFI::Struct # :nodoc:
@@ -89,13 +86,8 @@ module CLibsql # :nodoc:
     layout err: :pointer,
            inner: :pointer
 
-    def next
-      CLibsql.libsql_rows_next self
-    end
-
-    def deinit
-      CLibsql.libsql_rows_deinit self
-    end
+    def next = CLibsql.libsql_rows_next(self).tap(&:verify)
+    def deinit = CLibsql.libsql_rows_deinit(self)
   end
 
   class Row < FFI::Struct # :nodoc:
@@ -104,25 +96,11 @@ module CLibsql # :nodoc:
     layout err: :pointer,
            inner: :pointer
 
-    def value_at(index)
-      CLibsql.libsql_row_value self, index
-    end
-
-    def name_at(index)
-      CLibsql.libsql_row_name self, index
-    end
-
-    def length
-      CLibsql.libsql_row_length self
-    end
-
-    def empty?
-      CLibsql.libsql_row_empty self
-    end
-
-    def deinit
-      CLibsql.libsql_row_deinit self
-    end
+    def value_at(index) = CLibsql.libsql_row_value(self, index).tap(&:verify)
+    def name_at(index) = CLibsql.libsql_row_name(self, index)
+    def length = CLibsql.libsql_row_length(self)
+    def empty? = CLibsql.libsql_row_empty(self)
+    def deinit = CLibsql.libsql_row_deinit(self)
   end
 
   class DatabaseDesc < FFI::Struct # :nodoc:
@@ -137,6 +115,12 @@ module CLibsql # :nodoc:
   end
 
   class Bind < FFI::Struct # :nodoc:
+    include Verify
+
+    layout err: :pointer
+  end
+
+  class Batch < FFI::Struct # :nodoc:
     include Verify
 
     layout err: :pointer
@@ -165,9 +149,7 @@ module CLibsql # :nodoc:
       s
     end
 
-    def deinit
-      CLibsql.libsql_slice_deinit self
-    end
+    def deinit = CLibsql.libsql_slice_deinit self
   end
 
   class ValueUnion < FFI::Union # :nodoc:
@@ -205,6 +187,12 @@ module CLibsql # :nodoc:
 
   attach_function :libsql_connection_transaction, [Connection.by_value], Transaction.by_value
   attach_function :libsql_connection_prepare, [Connection.by_value, :string], Statement.by_value
+  attach_function :libsql_connection_batch, [Connection.by_value, :string], Batch.by_value
+
+  attach_function :libsql_transaction_prepare, [Transaction.by_value], Statement.by_value
+  attach_function :libsql_transaction_commit, [Transaction.by_value], :void
+  attach_function :libsql_transaction_rollback, [Transaction.by_value], :void
+  attach_function :libsql_transaction_batch, [Transaction.by_value, :string], Batch.by_value
 
   attach_function :libsql_statement_bind_value, [Statement.by_value, Value.by_value], Bind.by_value
   attach_function :libsql_statement_bind_named, [Statement.by_value, :string, Value.by_value], Bind.by_value
@@ -236,44 +224,53 @@ module CLibsql # :nodoc:
 end
 
 module Libsql
-  class Row
-    def initialize(inner)
-      @inner = inner
+  class Blob < String; end
+
+  module Prepareable
+    def execute(sql, params = [])
+      prepare(sql) { |stmt| stmt.execute(params) }
     end
 
-    def to_a
-      (0...@inner.length).map { |i| self[i] }
-    end
-
-    def to_h
-      cols.zip(to_a).to_h
-    end
-
-    def cols
-      (0...@inner.length).map { |i| @inner.name_at(i).to_s }
-    end
-
-    def [](index)
-      result = @inner.value_at index
-      result.verify
-      result[:ok].convert
-    end
-
-    def close
-      @inner.deinit
+    def query(sql, params = [])
+      prepare(sql) { |stmt| stmt.query(params) }
     end
   end
 
-  class Rows
+  class Row
+    include Enumerable
+
     def initialize(inner)
       @inner = inner
-      @inner.verify
+    end
+
+    def to_h = columns.zip(to_a).to_h
+    def length = @inner.length
+    def columns = (0...length).map { |i| @inner.name_at(i).to_s }
+    def each = (0...length).each { |i| yield self[i] }
+
+    def [](index)
+      case index
+      in Integer then @inner.value_at(index)[:ok].convert
+      in String
+        at = columns.index(index)
+        return self[at] unless at.nil?
+
+        raise "#{index} is not a valid row column"
+      end
+    end
+
+    def close = @inner.deinit
+  end
+
+  class Rows
+    include Enumerable
+
+    def initialize(inner)
+      @inner = inner
     end
 
     def next
-      row = CLibsql.libsql_rows_next @inner
-      row.verify
-
+      row = @inner.next
       Row.new row unless row.empty?
     end
 
@@ -284,41 +281,38 @@ module Libsql
       end
     end
 
-    def close
-      @inner.deinit
-    end
+    def close = @inner.deinit
   end
-
-  class Blob < String; end
 
   class Statement
     def initialize(inner)
       @inner = inner
-      @inner.verify
     end
 
     def bind(params)
       case params
       in Array then params.each { |v| @inner.bind_value convert(v) }
-      in Hash then params.each do |k, v|
-        @inner.bind_named case k when Symbol then ":#{k}" else k end, convert(v)
-      end
+      in Hash
+        params.each do |k, v|
+          @inner.bind_named case k when Symbol then ":#{k}" else k end, convert(v)
+        end
       end
     end
 
     def execute(params = [])
       bind params
-      CLibsql.libsql_statement_execute(@inner).verify
+      @inner.execute
     end
 
     def query(params = [])
       bind params
-      Rows.new CLibsql.libsql_statement_query @inner
+      rows = Rows.new @inner.query
+      return rows unless block_given?
+
+      begin yield rows ensure fows.close end
     end
 
-    def close
-      @inner.deinit
-    end
+    def close = @inner.deinit
 
     private
 
@@ -333,19 +327,59 @@ module Libsql
     end
   end
 
-  class Connection
+  class Transaction
+    include Prepareable
+
     def initialize(inner)
       @inner = inner
-      @inner.verify
     end
 
     def prepare(sql)
-      Statement.new CLibsql.libsql_connection_prepare @inner, sql
+      stmt = Statement.new @inner.prepare sql
+      return stmt unless block_given?
+
+      begin yield stmt ensure stmt.close end
     end
 
-    def close
-      @inner.deinit
+    def execute_batch(sql) = @inner.execute_batch(sql)
+
+    def rollback = @inner.rollback
+    def commit = @inner.commit
+  end
+
+  class Connection
+    include Prepareable
+
+    def initialize(inner)
+      @inner = inner
     end
+
+    def transaction(sql)
+      tx = Transaction.new @inner.prepare sql
+      return tx unless block_given?
+
+      abort = false
+      begin
+        yield self
+      rescue StandardError
+        abort = true
+        raise
+      ensure
+        abort and tx.rollback or tx.commit
+      end
+    end
+
+    def prepare(sql)
+      stmt = Statement.new @inner.prepare sql
+
+      return stmt unless block_given?
+
+      begin yield stmt ensure stmt.close end
+    end
+
+    def execute_batch(sql) = @inner.execute_batch(sql)
+
+    def close = @inner.deinit
   end
 
   class Database
@@ -353,11 +387,13 @@ module Libsql
       desc = CLibsql::DatabaseDesc.new
 
       %i[path url auth_token encryption_key].each do |sym|
-        desc[sym] = FFI::MemoryPointer.from_string options[sym] if options[sym]
+        desc[sym] = FFI::MemoryPointer.from_string options[sym] unless options[sym].nil?
       end
 
-      @inner = CLibsql.libsql_database_init(desc)
-      @inner.verify
+      desc[:sync_interval] = options[:sync_interval] unless options[:sync_interval]
+      desc[:disable_read_your_writes] = !options[:read_your_writes] unless options[:read_your_writes].nil?
+
+      @inner = CLibsql::Database.init desc
 
       return unless block_given?
 
@@ -365,22 +401,13 @@ module Libsql
     end
 
     def connect
-      Connection.new CLibsql.libsql_database_connect @inner
+      conn = Connection.new @inner.connect
+
+      return unless block_given?
+
+      begin yield conn ensure conn.close end
     end
 
-    def close
-      @inner.deinit
-    end
+    def close = @inner.deinit
   end
-end
-
-Libsql::Database.new path: ':memory:' do |db|
-  conn = db.connect
-
-  conn.prepare('select :a, :b, :c, :d').query({ a: 20, b: 0.3, c: 'hello', d: nil }).each do |row|
-    p row.cols
-    p row.to_a
-  end
-
-  conn.close
 end

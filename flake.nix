@@ -17,7 +17,7 @@
           with pkgs;
           mkShell {
             buildInputs = [
-              (ruby.withPackages (ps: with ps; [ bundler solargraph ]))
+              (ruby.withPackages (ps: with ps; [ bundler solargraph rspec ]))
               turso-cli
               ruby-lsp
             ] ++ lib.optionals stdenv.isDarwin [ iconv ];
