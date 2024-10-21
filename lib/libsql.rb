@@ -190,6 +190,15 @@ module CLibsql # :nodoc:
            ok: Value.by_value
   end
 
+  class Config < FFI::Struct # :nodoc:
+    include Verify
+
+    layout logger: :pointer,
+           version: :pointer
+  end
+
+  attach_function :libsql_setup, [Config.by_value], :pointer
+
   attach_function :libsql_database_init, [DatabaseDesc.by_value], Database.by_value
   attach_function :libsql_database_sync, [Database.by_value], Sync.by_value
   attach_function :libsql_database_connect, [Database.by_value], Connection.by_value
@@ -428,3 +437,7 @@ module Libsql
     def close = @inner.deinit
   end
 end
+
+config = CLibsql::Config.new
+config[:version] = FFI::MemoryPointer.from_string 'libsql-ruby'
+CLibsql.libsql_setup config
