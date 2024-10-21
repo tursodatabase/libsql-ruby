@@ -38,6 +38,7 @@ module CLibsql # :nodoc:
            inner: :pointer
 
     def self.init(desc) = CLibsql.libsql_database_init(desc).tap(&:verify)
+    def sync = CLibsql.libsql_database_sync(self).tap(&:verify)
     def connect = CLibsql.libsql_database_connect(self).tap(&:verify)
     def deinit = CLibsql.libsql_database_deinit self
   end
@@ -108,7 +109,7 @@ module CLibsql # :nodoc:
            path: :pointer,
            auth_token: :pointer,
            encryption_key: :pointer,
-           sync_inteval: :uint64,
+           sync_interval: :uint64,
            cypher: Cypher,
            disable_read_your_writes: :bool,
            webpki: :bool
@@ -124,6 +125,14 @@ module CLibsql # :nodoc:
     include Verify
 
     layout err: :pointer
+  end
+
+  class Sync < FFI::Struct # :nodoc:
+    include Verify
+
+    layout err: :pointer,
+           frame_no: :uint64,
+           frames_synced: :uint64
   end
 
   class Execute < FFI::Struct # :nodoc:
@@ -182,14 +191,14 @@ module CLibsql # :nodoc:
   end
 
   attach_function :libsql_database_init, [DatabaseDesc.by_value], Database.by_value
-  attach_function :libsql_database_sync, [Database.by_value], Database.by_value
+  attach_function :libsql_database_sync, [Database.by_value], Sync.by_value
   attach_function :libsql_database_connect, [Database.by_value], Connection.by_value
 
   attach_function :libsql_connection_transaction, [Connection.by_value], Transaction.by_value
   attach_function :libsql_connection_prepare, [Connection.by_value, :string], Statement.by_value
   attach_function :libsql_connection_batch, [Connection.by_value, :string], Batch.by_value
 
-  attach_function :libsql_transaction_prepare, [Transaction.by_value], Statement.by_value
+  attach_function :libsql_transaction_prepare, [Transaction.by_value, :string], Statement.by_value
   attach_function :libsql_transaction_commit, [Transaction.by_value], :void
   attach_function :libsql_transaction_rollback, [Transaction.by_value], :void
   attach_function :libsql_transaction_batch, [Transaction.by_value, :string], Batch.by_value
@@ -267,6 +276,10 @@ module Libsql
 
     def initialize(inner)
       @inner = inner
+    end
+
+    def to_a
+      map(&:to_h)
     end
 
     def next
@@ -354,8 +367,8 @@ module Libsql
       @inner = inner
     end
 
-    def transaction(sql)
-      tx = Transaction.new @inner.prepare sql
+    def transaction
+      tx = Transaction.new @inner.transaction
       return tx unless block_given?
 
       abort = false
@@ -390,7 +403,7 @@ module Libsql
         desc[sym] = FFI::MemoryPointer.from_string options[sym] unless options[sym].nil?
       end
 
-      desc[:sync_interval] = options[:sync_interval] unless options[:sync_interval]
+      desc[:sync_interval] = options[:sync_interval] unless options[:sync_interval].nil?
       desc[:disable_read_your_writes] = !options[:read_your_writes] unless options[:read_your_writes].nil?
 
       @inner = CLibsql::Database.init desc
@@ -398,6 +411,10 @@ module Libsql
       return unless block_given?
 
       begin yield self ensure close end
+    end
+
+    def sync
+      @inner.sync
     end
 
     def connect
