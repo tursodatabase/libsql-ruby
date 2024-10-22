@@ -65,7 +65,7 @@ db =
     path: 'local.db',
     url: ENV['TURSO_DATABASE_URL'],
     auth_token: ENV['TURSO_AUTH_TOKEN'],
-    sync_interval: 100
+    sync_interval: 1000
   )
 
 db.sync

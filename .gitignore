@@ -1,2 +1,4 @@
 .direnv
 *test.db*
+.DS_Store
+local.db
