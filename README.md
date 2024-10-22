@@ -14,8 +14,6 @@
 <p align="center">
   <a href="https://tur.so/turso-ruby"><strong>Turso</strong></a> ·
   <a href="https://docs.turso.tech"><strong>Docs</strong></a> ·
-  <a href="https://docs.turso.tech/sdk/ruby/quickstart"><strong>Quickstart</strong></a> ·
-  <a href="https://docs.turso.tech/sdk/ruby/reference"><strong>SDK Reference</strong></a> ·
   <a href="https://turso.tech/blog"><strong>Blog &amp; Tutorials</strong></a>
 </p>
 
@@ -53,12 +51,16 @@
 
 ## Install
 
+```bash
+gem install turso_libsql
+```
+
 ## Quickstart
 
 The example below uses Embedded Replicas and syncs data every 1000ms from Turso.
 
 ```rb
-require_relative 'libsql'
+require_relative 'turso_libsql'
 
 db =
   Libsql::Database.new(
@@ -87,7 +89,7 @@ end
 
 ## Documentation
 
-Visit our [official documentation](https://docs.turso.tech/sdk/ruby).
+Visit our [official documentation](https://docs.turso.tech).
 
 ## Support
 
