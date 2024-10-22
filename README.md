@@ -87,6 +87,18 @@ db.connect do |conn|
 end
 ```
 
+## Examples
+
+| Example                                  | Description                                                                             |
+| ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| [local](examples/local.rb)               | Uses libsql with a local SQLite file. Creates database, inserts data, and queries.      |
+| [remote](examples/remote.rb)             | Connects to a remote database. Requires environment variables for URL and auth token.   |
+| [sync](examples/sync.rb)                 | Demonstrates synchronization between local and remote databases.                        |
+| [transactions](examples/transactions.rb) | Shows transaction usage: starting, performing operations, and committing/rolling back.  |
+| [memory](examples/memory.rb)             | Uses an in-memory SQLite database for temporary storage or fast access.                 |
+| [vector](examples/vector.rb)             | Works with vector embeddings, storing and querying for similarity search.               |
+| [encryption](examples/encryption.rb)     | Creates and uses an encrypted SQLite database, demonstrating setup and data operations. |
+
 ## Documentation
 
 Visit our [official documentation](https://docs.turso.tech).
