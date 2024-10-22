@@ -1,4 +1,4 @@
-source "https://rubygems.org"
+source 'https://rubygems.org'
 
-gem "rspec", "~> 3.10"
-gem "ffi", "~> 1.17"
+gem 'ffi', '~> 1.17'
+gem 'rspec', '~> 3.10'
