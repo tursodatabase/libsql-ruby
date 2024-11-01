@@ -14,9 +14,9 @@ RSpec.describe do
 
   it 'create, insert, select table' do
     db.connect do |conn|
-      conn.execute <<-SQL
+      conn.execute_batch <<-SQL
         drop table if exists test;
-        create table if not exists test (i integer);
+        create table test (i integer);
       SQL
 
       (0..10).each do |i|
@@ -25,6 +25,17 @@ RSpec.describe do
 
       (0..10).zip(conn.query('select * from test').map { |row| row['i'] }) do |expected, have|
         expect(have).to eq(expected)
+      end
+    end
+  end
+
+  it 'statement reset' do
+    db.connect do |conn|
+      conn.prepare('select ?') do |stmt|
+        p stmt.column_count
+        p (stmt.query [1]).to_a
+        stmt.reset
+        p (stmt.query [1.2]).to_a
       end
     end
   end

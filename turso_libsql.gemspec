@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'turso_libsql'
-  s.version     = '0.0.0'
+  s.version     = '0.1.0'
   s.summary     = 'libSQL'
   s.description = 'libSQL Ruby SDK'
   s.authors     = ['Levy Albuquerque']

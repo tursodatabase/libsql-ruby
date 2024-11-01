@@ -78,7 +78,9 @@ module CLibsql # :nodoc:
     def bind_named(name, value) = CLibsql.libsql_statement_bind_named(self, name, value).tap(&:verify)
     def query = CLibsql.libsql_statement_query(self).tap(&:verify)
     def execute = CLibsql.libsql_statement_execute(self).tap(&:verify)
-    def deinit = CLibsql.libsql_statement_deinit self
+    def column_count = CLibsql.libsql_statement_column_count(self)
+    def reset = CLibsql.libsql_statement_reset(self)
+    def deinit = CLibsql.libsql_statement_deinit(self)
   end
 
   class Rows < FFI::Struct # :nodoc:
@@ -216,6 +218,8 @@ module CLibsql # :nodoc:
   attach_function :libsql_statement_bind_named, [Statement.by_value, :string, Value.by_value], Bind.by_value
   attach_function :libsql_statement_query, [Statement.by_value], Rows.by_value
   attach_function :libsql_statement_execute, [Statement.by_value], Execute.by_value
+  attach_function :libsql_statement_column_count, [Statement.by_value], :size_t
+  attach_function :libsql_statement_reset, [Statement.by_value], :void
 
   attach_function :libsql_rows_next, [Rows.by_value], Row.by_value
 
@@ -323,7 +327,7 @@ module Libsql
 
     def execute(params = [])
       bind params
-      @inner.execute
+      @inner.execute[:rows_changed]
     end
 
     def query(params = [])
@@ -331,10 +335,12 @@ module Libsql
       rows = Rows.new @inner.query
       return rows unless block_given?
 
-      begin yield rows ensure fows.close end
+      begin yield rows ensure rows.close end
     end
 
+    def column_count = @inner.column_count
     def close = @inner.deinit
+    def reset = @inner.reset
 
     private
 
