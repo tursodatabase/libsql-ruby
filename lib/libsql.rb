@@ -5,7 +5,7 @@ module CLibsql # :nodoc:
 
   file =
     case RUBY_PLATFORM
-    in /darwin/ then 'universal2-apple-darwin/liblibsql.dylib'
+    in /arm64-darwin/ then 'aarch64-apple-darwin/liblibsql.dylib'
     in /x86_64-linux/ then 'x86_64-unknown-linux-gnu/liblibsql.so'
     in /arm64-linux/ then 'aarch64-unknown-linux-gnu/liblibsql.so'
     end
@@ -40,7 +40,7 @@ module CLibsql # :nodoc:
     def self.init(desc) = CLibsql.libsql_database_init(desc).tap(&:verify)
     def sync = CLibsql.libsql_database_sync(self).tap(&:verify)
     def connect = CLibsql.libsql_database_connect(self).tap(&:verify)
-    def deinit = CLibsql.libsql_database_deinit self
+    def deinit = CLibsql.libsql_database_deinit(self)
   end
 
   class Connection < FFI::Struct  # :nodoc:
@@ -160,7 +160,7 @@ module CLibsql # :nodoc:
       s
     end
 
-    def deinit = CLibsql.libsql_slice_deinit self
+    def deinit = CLibsql.libsql_slice_deinit(self)
   end
 
   class ValueUnion < FFI::Union # :nodoc:
@@ -248,6 +248,8 @@ end
 module Libsql
   class Blob < String; end
 
+  class ClosedException < Exception; end
+
   module Prepareable
     def execute(sql, params = [])
       prepare(sql) { |stmt| stmt.execute(params) }
@@ -266,11 +268,22 @@ module Libsql
     end
 
     def to_h = columns.zip(to_a).to_h
-    def length = @inner.length
-    def columns = (0...length).map { |i| @inner.name_at(i).to_s }
+
+    def length
+      raise ClosedException if closed?
+      @inner.length
+    end
+
+    def columns
+      raise ClosedException if closed?
+      (0...length).map { |i| @inner.name_at(i).to_s }
+    end
+
     def each = (0...length).each { |i| yield self[i] }
 
     def [](index)
+      raise ClosedException if closed?
+
       case index
       in Integer then @inner.value_at(index)[:ok].convert
       in String
@@ -281,7 +294,16 @@ module Libsql
       end
     end
 
-    def close = @inner.deinit
+    def close
+      raise ClosedException if closed?
+
+      @inner.deinit
+      @inner = nil
+    end
+
+    def closed?
+      @inner.nil?
+    end
   end
 
   class Rows
@@ -296,6 +318,8 @@ module Libsql
     end
 
     def next
+      raise ClosedException if closed?
+
       row = @inner.next
       Row.new row unless row.empty?
     end
@@ -307,7 +331,16 @@ module Libsql
       end
     end
 
-    def close = @inner.deinit
+    def close
+      raise ClosedException if closed?
+
+      @inner.deinit
+      @inner = nil
+    end
+
+    def closed?
+      @inner.nil?
+    end
   end
 
   class Statement
@@ -316,6 +349,8 @@ module Libsql
     end
 
     def bind(params)
+      raise ClosedException if closed?
+
       case params
       in Array then params.each { |v| @inner.bind_value convert(v) }
       in Hash
@@ -326,11 +361,15 @@ module Libsql
     end
 
     def execute(params = [])
+      raise ClosedException if closed?
+
       bind params
       @inner.execute[:rows_changed]
     end
 
     def query(params = [])
+      raise ClosedException if closed?
+
       bind params
       rows = Rows.new @inner.query
       return rows unless block_given?
@@ -338,9 +377,28 @@ module Libsql
       begin yield rows ensure rows.close end
     end
 
-    def column_count = @inner.column_count
-    def close = @inner.deinit
-    def reset = @inner.reset
+    def column_count
+      raise ClosedException if closed?
+
+      @inner.column_count
+    end
+
+    def reset
+      raise ClosedException if closed?
+
+      @inner.reset
+    end
+
+    def close
+      raise ClosedException if closed?
+
+      @inner.deinit
+      @inner = nil
+    end
+
+    def closed?
+      @inner.nil?
+    end
 
     private
 
@@ -363,16 +421,37 @@ module Libsql
     end
 
     def prepare(sql)
+      raise ClosedException if closed?
+
       stmt = Statement.new @inner.prepare sql
       return stmt unless block_given?
 
       begin yield stmt ensure stmt.close end
     end
 
-    def execute_batch(sql) = @inner.execute_batch(sql)
+    def execute_batch(sql)
+      raise ClosedException if closed?
 
-    def rollback = @inner.rollback
-    def commit = @inner.commit
+      @inner.execute_batch(sql)
+    end
+
+    def rollback
+      raise ClosedException if closed?
+
+      @inner.rollback
+      @inner = nil
+    end
+
+    def commit
+      raise ClosedException if closed?
+
+      @inner.commit
+      @inner = nil
+    end
+
+    def closed?
+      @inner.nil?
+    end
   end
 
   class Connection
@@ -383,6 +462,8 @@ module Libsql
     end
 
     def transaction
+      raise ClosedException if closed?
+
       tx = Transaction.new @inner.transaction
       return tx unless block_given?
 
@@ -398,6 +479,8 @@ module Libsql
     end
 
     def prepare(sql)
+      raise ClosedException if closed?
+
       stmt = Statement.new @inner.prepare sql
 
       return stmt unless block_given?
@@ -407,7 +490,16 @@ module Libsql
 
     def execute_batch(sql) = @inner.execute_batch(sql)
 
-    def close = @inner.deinit
+    def close
+      raise ClosedException if closed?
+
+      @inner.deinit
+      @inner = nil
+    end
+
+    def closed?
+      @inner.nil?
+    end
   end
 
   class Database
@@ -429,10 +521,13 @@ module Libsql
     end
 
     def sync
+      raise ClosedException if closed?
       @inner.sync
     end
 
     def connect
+      raise ClosedException if closed?
+
       conn = Connection.new @inner.connect
 
       return unless block_given?
@@ -440,7 +535,16 @@ module Libsql
       begin yield conn ensure conn.close end
     end
 
-    def close = @inner.deinit
+    def close
+      raise ClosedException if closed?
+
+      @inner.deinit
+      @inner = nil
+    end
+
+    def closed?
+      @inner.nil?
+    end
   end
 end
 
