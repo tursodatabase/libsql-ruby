@@ -530,7 +530,7 @@ module Libsql
 
       conn = Connection.new @inner.connect
 
-      return unless block_given?
+      return conn unless block_given?
 
       begin yield conn ensure conn.close end
     end
