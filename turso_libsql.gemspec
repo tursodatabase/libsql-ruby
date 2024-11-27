@@ -9,8 +9,9 @@ Gem::Specification.new do |s|
     'lib/libsql.rb',
     'lib/lib/x86_64-unknown-linux-gnu/liblibsql.so',
     'lib/lib/aarch64-unknown-linux-gnu/liblibsql.so',
-    'lib/lib/universal2-apple-darwin/liblibsql.dylib'
+    'lib/lib/aarch64-apple-darwin/liblibsql.dylib'
   ]
   s.homepage = 'https://rubygems.org/gems/turso_libsql'
   s.license = 'MIT'
+  s.required_ruby_version = '>= 3.3'
 end

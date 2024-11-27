@@ -7,6 +7,7 @@ module CLibsql # :nodoc:
     case RUBY_PLATFORM
     in /arm64-darwin/ then 'aarch64-apple-darwin/liblibsql.dylib'
     in /x86_64-linux/ then 'x86_64-unknown-linux-gnu/liblibsql.so'
+    in /aarch64-linux/ then 'aarch64-unknown-linux-gnu/liblibsql.so'
     in /arm64-linux/ then 'aarch64-unknown-linux-gnu/liblibsql.so'
     end
 
@@ -91,6 +92,8 @@ module CLibsql # :nodoc:
 
     def next = CLibsql.libsql_rows_next(self).tap(&:verify)
     def deinit = CLibsql.libsql_rows_deinit(self)
+    def name_at(index) = CLibsql.libsql_rows_column_name(self, index)
+    def length = CLibsql.libsql_rows_column_length(self)
   end
 
   class Row < FFI::Struct # :nodoc:
@@ -222,6 +225,8 @@ module CLibsql # :nodoc:
   attach_function :libsql_statement_reset, [Statement.by_value], :void
 
   attach_function :libsql_rows_next, [Rows.by_value], Row.by_value
+  attach_function :libsql_rows_column_length, [Rows.by_value], :uint32
+  attach_function :libsql_rows_column_name, [Rows.by_value, :uint32], Slice.by_value
 
   attach_function :libsql_row_empty, [Row.by_value], :bool
   attach_function :libsql_row_value, [Row.by_value, :uint32], ResultValue.by_value
@@ -271,11 +276,13 @@ module Libsql
 
     def length
       raise ClosedException if closed?
+
       @inner.length
     end
 
     def columns
       raise ClosedException if closed?
+
       (0...length).map { |i| @inner.name_at(i).to_s }
     end
 
@@ -311,6 +318,18 @@ module Libsql
 
     def initialize(inner)
       @inner = inner
+    end
+
+    def column_count
+      raise ClosedException if closed?
+
+      @inner.length
+    end
+
+    def columns
+      raise ClosedException if closed?
+
+      (0...column_count).map { |i| @inner.name_at(i).to_s }
     end
 
     def to_a
@@ -522,6 +541,7 @@ module Libsql
 
     def sync
       raise ClosedException if closed?
+
       @inner.sync
     end
 
