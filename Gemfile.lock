@@ -1,3 +1,9 @@
+PATH
+  remote: .
+  specs:
+    turso_libsql (0.1.1)
+      ffi (~> 1.17)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -23,8 +29,8 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  ffi (~> 1.17)
   rspec (~> 3.10)
+  turso_libsql!
 
 BUNDLED WITH
-   2.5.16
+   2.5.11

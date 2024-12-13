@@ -3,25 +3,42 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    ruby-nix.url = "github:inscapist/ruby-nix";
+    bundix = {
+      url = "github:inscapist/bundix/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     flake-utils = {
       url = "github:numtide/flake-utils";
     };
   };
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, ruby-nix, bundix }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ ruby-nix.overlays.ruby ];
+        };
+        rubyNix = ruby-nix.lib pkgs;
+
+        inherit (rubyNix {
+          gemset = if builtins.pathExists ./gemset.nix then import ./gemset.nix else { };
+          name = "env";
+        }) env ruby;
       in
       {
         devShells.default =
           with pkgs;
           mkShell {
             buildInputs = [
-              (ruby.withPackages (ps: with ps; [ bundler solargraph rspec ]))
+              bundix.packages.${system}.default
               turso-cli
-              ruby-lsp
+
+              env
+              ruby
             ] ++ lib.optionals stdenv.isDarwin [ iconv ];
           };
       });
 }
+
 

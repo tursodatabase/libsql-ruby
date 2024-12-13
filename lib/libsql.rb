@@ -196,8 +196,6 @@ module CLibsql # :nodoc:
   end
 
   class Config < FFI::Struct # :nodoc:
-    include Verify
-
     layout logger: :pointer,
            version: :pointer
   end
@@ -256,12 +254,12 @@ module Libsql
   class ClosedException < Exception; end
 
   module Prepareable
-    def execute(sql, params = [])
-      prepare(sql) { |stmt| stmt.execute(params) }
+    def execute(sql, params = [], &block)
+      prepare(sql) { |stmt| stmt.execute(params, &block) }
     end
 
-    def query(sql, params = [])
-      prepare(sql) { |stmt| stmt.query(params) }
+    def query(sql, params = [], &block)
+      prepare(sql) { |stmt| stmt.query(params, &block) }
     end
   end
 

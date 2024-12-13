@@ -28,4 +28,41 @@ RSpec.describe do
       end
     end
   end
+
+  it 'delete local' do
+    db = Libsql::Database.new(path: 'local_test.db')
+
+    project_id = 1
+    key_type = 'test'
+    key = 'test'
+
+    db.connect do |conn|
+      sql = <<~SQL
+        CREATE TABLE IF NOT EXISTS keys(
+          project_id INTEGER NOT NULL,
+          key_type TEXT NOT NULL,
+          key TEXT NOT NULL
+        )
+      SQL
+      conn.query(sql) {}
+    end
+
+    db.connect do |conn|
+      sql = 'INSERT INTO keys(`project_id`, `key_type`, `key`) VALUES(?, ?, ?);'
+      conn.query(sql, [project_id, key_type, key]) {}
+    end
+
+    db.connect do |conn|
+      p conn.query('SELECT COUNT(*) FROM keys') { |rows| rows.first.first }
+    end
+
+    db.connect do |conn|
+      sql = 'DELETE FROM `keys` WHERE `project_id` = ? AND `key_type` = ? AND `key` = ?'
+      conn.execute(sql, [project_id, key_type, key]) {}
+    end
+
+    db.connect do |conn|
+      p conn.query('SELECT COUNT(*) FROM keys;') { |rows| rows.first.first }
+    end
+  end
 end
