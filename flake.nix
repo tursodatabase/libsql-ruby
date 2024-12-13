@@ -23,7 +23,7 @@
 
         inherit (rubyNix {
           gemset = if builtins.pathExists ./gemset.nix then import ./gemset.nix else { };
-          name = "env";
+          name = "ruby-env";
         }) env ruby;
       in
       {
