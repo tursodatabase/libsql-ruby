@@ -53,7 +53,8 @@ RSpec.describe do
     end
 
     db.connect do |conn|
-      p conn.query('SELECT COUNT(*) FROM keys') { |rows| rows.first.first }
+      count = conn.query('SELECT COUNT(*) FROM keys') { |rows| rows.first.first }
+      expect(count).to eq(1)
     end
 
     db.connect do |conn|
@@ -62,7 +63,8 @@ RSpec.describe do
     end
 
     db.connect do |conn|
-      p conn.query('SELECT COUNT(*) FROM keys;') { |rows| rows.first.first }
+      count = conn.query('SELECT COUNT(*) FROM keys;') { |rows| rows.first.first }
+      expect(count).to eq(0)
     end
   end
 end
