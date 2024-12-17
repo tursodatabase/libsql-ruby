@@ -33,6 +33,7 @@
             buildInputs = [
               bundix.packages.${system}.default
               turso-cli
+              rubyPackages.solargraph
 
               env
               ruby
