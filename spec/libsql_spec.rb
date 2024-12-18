@@ -23,6 +23,9 @@ RSpec.describe do
         conn.query 'insert into test values (:i)', { i: }
       end
 
+      expect(conn.total_changes).to eq(11)
+      expect(conn.last_inserted_id).to eq(11)
+
       (0..10).zip(conn.query('select * from test').map { |row| row['i'] }) do |expected, have|
         expect(have).to eq(expected)
       end

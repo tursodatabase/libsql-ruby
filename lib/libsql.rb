@@ -50,6 +50,7 @@ module CLibsql # :nodoc:
     layout err: :pointer,
            inner: :pointer
 
+    def info = CLibsql.libsql_connection_info(self).tap(&:verify)
     def transaction = CLibsql.libsql_connection_transaction(self).tap(&:verify)
     def prepare(sql) = CLibsql.libsql_connection_prepare(self, sql).tap(&:verify)
     def execute_batch(sql) = CLibsql.libsql_connection_batch(self, sql).tap(&:verify)
@@ -107,6 +108,14 @@ module CLibsql # :nodoc:
     def length = CLibsql.libsql_row_length(self)
     def empty? = CLibsql.libsql_row_empty(self)
     def deinit = CLibsql.libsql_row_deinit(self)
+  end
+
+  class ConnectionInfo < FFI::Struct # :nodoc:
+    include Verify
+
+    layout err: :pointer,
+           last_inserted_id: :int64,
+           total_changes: :uint64
   end
 
   class DatabaseDesc < FFI::Struct # :nodoc:
@@ -209,6 +218,7 @@ module CLibsql # :nodoc:
   attach_function :libsql_connection_transaction, [Connection.by_value], Transaction.by_value
   attach_function :libsql_connection_prepare, [Connection.by_value, :string], Statement.by_value
   attach_function :libsql_connection_batch, [Connection.by_value, :string], Batch.by_value
+  attach_function :libsql_connection_info, [Connection.by_value], ConnectionInfo.by_value
 
   attach_function :libsql_transaction_prepare, [Transaction.by_value, :string], Statement.by_value
   attach_function :libsql_transaction_commit, [Transaction.by_value], :void
@@ -493,6 +503,18 @@ module Libsql
       ensure
         abort and tx.rollback or tx.commit
       end
+    end
+
+    def total_changes
+      raise ClosedException if closed?
+
+      @inner.info[:total_changes]
+    end
+
+    def last_inserted_id
+      raise ClosedException if closed?
+
+      @inner.info[:last_inserted_id]
     end
 
     def prepare(sql)
