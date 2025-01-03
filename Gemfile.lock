@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    turso_libsql (0.1.2)
+    turso_libsql (0.2.0)
       ffi (~> 1.17)
 
 GEM
