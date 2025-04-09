@@ -49,12 +49,12 @@
     platforms = [];
     source = {
       remotes = ["https://rubygems.org"];
-      sha256 = "0s688wfw77fjldzayvczg8bgwcgh6bh552dw7qcj1rhjk3r4zalx";
+      sha256 = "001kazj244cb6fbkmh7ap74csbr78717qaskqzqpir1q8xpdmywl";
       target = "ruby";
       type = "gem";
     };
     targets = [];
-    version = "3.13.1";
+    version = "3.13.2";
   };
   rspec-expectations = {
     dependencies = ["diff-lcs" "rspec-support"];
@@ -87,12 +87,12 @@
     platforms = [];
     source = {
       remotes = ["https://rubygems.org"];
-      sha256 = "03z7gpqz5xkw9rf53835pa8a9vgj4lic54rnix9vfwmp2m7pv1s8";
+      sha256 = "1v6v6xvxcpkrrsrv7v1xgf7sl0d71vcfz1cnrjflpf6r7x3a58yf";
       target = "ruby";
       type = "gem";
     };
     targets = [];
-    version = "3.13.1";
+    version = "3.13.2";
   };
   turso_libsql = {
     dependencies = ["ffi"];
@@ -103,6 +103,6 @@
       type = "path";
     };
     targets = [];
-    version = "0.1.2";
+    version = "0.2.0";
   };
 }

@@ -6,6 +6,7 @@ module CLibsql # :nodoc:
   file =
     case RUBY_PLATFORM
     in /arm64-darwin/ then 'aarch64-apple-darwin/liblibsql.dylib'
+    in /x86_84-darwin/ then 'x86_64-apple-darwin/liblibsql.dylib'
     in /x86_64-linux/ then 'x86_64-unknown-linux-gnu/liblibsql.so'
     in /aarch64-linux/ then 'aarch64-unknown-linux-gnu/liblibsql.so'
     in /arm64-linux/ then 'aarch64-unknown-linux-gnu/liblibsql.so'
@@ -94,7 +95,7 @@ module CLibsql # :nodoc:
     def next = CLibsql.libsql_rows_next(self).tap(&:verify)
     def deinit = CLibsql.libsql_rows_deinit(self)
     def name_at(index) = CLibsql.libsql_rows_column_name(self, index)
-    def length = CLibsql.libsql_rows_column_length(self)
+    def column_count = CLibsql.libsql_rows_column_count(self)
   end
 
   class Row < FFI::Struct # :nodoc:
@@ -126,7 +127,9 @@ module CLibsql # :nodoc:
            sync_interval: :uint64,
            cypher: Cypher,
            disable_read_your_writes: :bool,
-           webpki: :bool
+           webpki: :bool,
+           synced: :bool,
+           disable_safety_assert: :bool
   end
 
   class Bind < FFI::Struct # :nodoc:
@@ -233,7 +236,7 @@ module CLibsql # :nodoc:
   attach_function :libsql_statement_reset, [Statement.by_value], :void
 
   attach_function :libsql_rows_next, [Rows.by_value], Row.by_value
-  attach_function :libsql_rows_column_length, [Rows.by_value], :uint32
+  attach_function :libsql_rows_column_count, [Rows.by_value], :uint32
   attach_function :libsql_rows_column_name, [Rows.by_value, :uint32], Slice.by_value
 
   attach_function :libsql_row_empty, [Row.by_value], :bool
@@ -331,7 +334,7 @@ module Libsql
     def column_count
       raise ClosedException if closed?
 
-      @inner.length
+      @inner.column_count
     end
 
     def columns
@@ -549,8 +552,8 @@ module Libsql
         desc[sym] = FFI::MemoryPointer.from_string options[sym] unless options[sym].nil?
       end
 
-      desc[:sync_interval] = options[:sync_interval] unless options[:sync_interval].nil?
-      desc[:disable_read_your_writes] = !options[:read_your_writes] unless options[:read_your_writes].nil?
+      desc[:sync_interval] = options[:sync_interval] || 0
+      desc[:disable_read_your_writes] = !options[:read_your_writes] || true
 
       @inner = CLibsql::Database.init desc
 
