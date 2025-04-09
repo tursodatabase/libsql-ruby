@@ -4,7 +4,7 @@ set -xe
 
 cd libsql-c
 
-./build.sh
+nix develop .# -c ./build.sh
 
 rm -rf \
   ../lib/lib/aarch64-unknown-linux-gnu \

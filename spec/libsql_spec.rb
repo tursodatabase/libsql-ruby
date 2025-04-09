@@ -1,14 +1,15 @@
 require_relative '../lib/libsql'
 
 RSpec.describe do
-  turso_url = `turso db show --url ruby-test`.strip
-  turso_auth_token = `turso db tokens create -e 1d ruby-test`.strip
+  turso_url = ENV['TURSO_URL']
+  turso_auth_token = ENV['TURSO_AUTH_TOKEN']
 
   db =
     Libsql::Database.new(
       path: 'test.db',
       url: turso_url,
       auth_token: turso_auth_token,
+      read_your_writes: false,
       sync_interval: 100
     )
 
@@ -20,15 +21,17 @@ RSpec.describe do
       SQL
 
       (0..10).each do |i|
-        conn.query 'insert into test values (:i)', { i: }
+        conn.execute 'insert into test values (:i)', { i: }
       end
 
-      expect(conn.total_changes).to eq(11)
-      expect(conn.last_inserted_id).to eq(11)
+      db.sync
 
       (0..10).zip(conn.query('select * from test').map { |row| row['i'] }) do |expected, have|
         expect(have).to eq(expected)
       end
+
+      expect(conn.total_changes).to eq(11)
+      expect(conn.last_inserted_id).to eq(11)
     end
   end
 

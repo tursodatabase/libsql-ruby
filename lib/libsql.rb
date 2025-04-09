@@ -127,7 +127,9 @@ module CLibsql # :nodoc:
            sync_interval: :uint64,
            cypher: Cypher,
            disable_read_your_writes: :bool,
-           webpki: :bool
+           webpki: :bool,
+           synced: :bool,
+           disable_safety_assert: :bool
   end
 
   class Bind < FFI::Struct # :nodoc:
@@ -550,8 +552,8 @@ module Libsql
         desc[sym] = FFI::MemoryPointer.from_string options[sym] unless options[sym].nil?
       end
 
-      desc[:sync_interval] = options[:sync_interval] unless options[:sync_interval].nil?
-      desc[:disable_read_your_writes] = !options[:read_your_writes] unless options[:read_your_writes].nil?
+      desc[:sync_interval] = options[:sync_interval] || 0
+      desc[:disable_read_your_writes] = !options[:read_your_writes] || true
 
       @inner = CLibsql::Database.init desc
 
