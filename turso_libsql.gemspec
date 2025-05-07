@@ -14,7 +14,10 @@ Gem::Specification.new do |s|
   s.homepage = 'https://rubygems.org/gems/turso_libsql'
   s.license = 'MIT'
   s.required_ruby_version = '>= 3.3'
-
+  s.metadata = {
+    'bug_tracker_uri' => 'https://github.com/tursodatabase/libsql-ruby/issues',
+    'source_code_uri' => 'https://github.com/tursodatabase/libsql-ruby'
+  }
   s.add_runtime_dependency 'ffi', '~> 1.17'
   s.add_development_dependency 'rspec', '~> 3.10'
 end
