@@ -129,7 +129,8 @@ module CLibsql # :nodoc:
            disable_read_your_writes: :bool,
            webpki: :bool,
            synced: :bool,
-           disable_safety_assert: :bool
+           disable_safety_assert: :bool,
+           namespace: :pointer
   end
 
   class Bind < FFI::Struct # :nodoc:
@@ -548,7 +549,7 @@ module Libsql
     def initialize(options = {})
       desc = CLibsql::DatabaseDesc.new
 
-      %i[path url auth_token encryption_key].each do |sym|
+      %i[path url auth_token encryption_key namespace].each do |sym|
         desc[sym] = FFI::MemoryPointer.from_string options[sym] unless options[sym].nil?
       end
 
