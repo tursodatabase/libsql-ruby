@@ -15,11 +15,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create branch
-        run: |
-          BRANCH_NAME="update-libsql-c-${{ github.event.inputs.release_version }}"
-          git checkout -b $BRANCH_NAME
-
       - name: Download and extract libsql-c releases
         run: |
           TARGETS=(
@@ -40,6 +35,8 @@ jobs:
             curl -L $RELEASE_URL -o libsql-c.zip
             unzip -o libsql-c.zip -d $EXTRACT_PATH
             rm libsql-c.zip
+            cp $EXTRACT_PATH/libsql.h ./lib/lib/libsql.h
+            find $EXTRACT_PATH -type f ! -name "*.dylib" ! -name "*.so" ! -name "*.dll" -delete
           done
 
       - name: Create Pull Request
@@ -59,4 +56,4 @@ jobs:
             - x86_64-pc-windows-msvc
             - aarch64-pc-windows-msvc
           branch: update-libsql-c-${{ github.event.inputs.release_version }}
-          base: main 
+          base: master
