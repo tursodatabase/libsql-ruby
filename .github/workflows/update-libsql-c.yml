@@ -1,0 +1,62 @@
+name: Update libsql-c dependency
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Version of libsql-c to fetch (e.g., v0.1.0)'
+        required: true
+        type: string
+
+jobs:
+  update-dependency:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create branch
+        run: |
+          BRANCH_NAME="update-libsql-c-${{ github.event.inputs.release_version }}"
+          git checkout -b $BRANCH_NAME
+
+      - name: Download and extract libsql-c releases
+        run: |
+          TARGETS=(
+            'x86_64-unknown-linux-gnu'
+            'aarch64-unknown-linux-gnu'
+            'x86_64-apple-darwin'
+            'aarch64-apple-darwin'
+            'x86_64-pc-windows-msvc'
+            'aarch64-pc-windows-msvc'
+          )
+
+          for target in "${TARGETS[@]}"; do
+            echo "Downloading $target..."
+            RELEASE_URL="https://github.com/tursodatabase/libsql-c/releases/download/${{ github.event.inputs.release_version }}/$target-release.zip"
+            EXTRACT_PATH="./lib/lib/$target"
+            
+            mkdir -p $EXTRACT_PATH
+            curl -L $RELEASE_URL -o libsql-c.zip
+            unzip -o libsql-c.zip -d $EXTRACT_PATH
+            rm libsql-c.zip
+          done
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update libsql-c to ${{ github.event.inputs.release_version }}"
+          title: "Update libsql-c to ${{ github.event.inputs.release_version }}"
+          body: |
+            This PR updates the libsql-c dependency to version ${{ github.event.inputs.release_version }}.
+            
+            Updated targets:
+            - x86_64-unknown-linux-gnu
+            - aarch64-unknown-linux-gnu
+            - x86_64-apple-darwin
+            - aarch64-apple-darwin
+            - x86_64-pc-windows-msvc
+            - aarch64-pc-windows-msvc
+          branch: update-libsql-c-${{ github.event.inputs.release_version }}
+          base: main 
