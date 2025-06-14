@@ -165,7 +165,7 @@ module CLibsql # :nodoc:
            len: :size_t
 
     def to_blob
-      b = Blob.new self[:ptr].read_string self[:len]
+      b = Libsql::Blob.new self[:ptr].read_string self[:len]
       deinit
       b
     end
