@@ -505,7 +505,7 @@ module Libsql
         abort = true
         raise
       ensure
-        abort and tx.rollback or tx.commit
+        abort ? tx.rollback : tx.commit
       end
     end
 

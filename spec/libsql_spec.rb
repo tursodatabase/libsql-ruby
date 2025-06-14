@@ -73,4 +73,16 @@ RSpec.describe do
       expect(count).to eq(0)
     end
   end
+
+  describe 'Connection#transaction' do
+    context 'when there is an exception' do
+      it 'aborts the transaction and raises the exception' do
+        exception_class = Class.new(StandardError)
+
+        db.connect do |conn|
+          expect { conn.transaction { raise exception_class } }.to raise_error(exception_class)
+        end
+      end
+    end
+  end
 end
