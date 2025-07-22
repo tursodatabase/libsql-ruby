@@ -60,7 +60,7 @@ gem install turso_libsql
 The example below uses Embedded Replicas and syncs data every 1000ms from Turso.
 
 ```rb
-require_relative 'turso_libsql'
+require 'libsql'
 
 db =
   Libsql::Database.new(
